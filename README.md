@@ -1,46 +1,45 @@
 # Tweakeroo Rust for Horizon
 
-A Rust-native port project for Tweakeroo, targeting Minecraft 26.3 on Horizon.
+A native Rust mod project inspired by Tweakeroo, targeting Minecraft 26.3 and Horizon Nightly.
 
-> **Status: bootstrap / not yet a feature-complete port.** This first commit establishes the native-mod project layout, compatibility pin, a settings model and a Horizon Mods menu entry. It does not claim that every Tweakeroo feature is implemented or that a packaged `.hnmod` has been built.
+> **Status: first feature implemented in source — Zoom.** The feature is wired to Horizon's native key, wheel and zoom hooks, but this repository has not yet been built or tested in-game. Do not treat it as a released `.hnmod` yet.
 
 ## Target
 
-- Minecraft: 26.3
-- Horizon Nightly source: `9f42064` (reported by the target launcher)
-- Mod id: `tweakeroo_rust`
-- Language: Rust
-- Native-mod format: `.hnmod` (Horizon mixin bundle)
+- Minecraft 26.3
+- Horizon Nightly: `9f42064c11efe7ef3e5ed2baad7ddc2a3b36eea0`
+- Horizon Mixins: `e8cd0aa38cffef49cb2e088ef716baa107148c02`
+- Native mod id: `tweakeroo_rust`
+- Native bundle format: `.hnmod`
 
-## Current bootstrap features
+## Implemented in source
 
-- A settings model for the first batch of Tweakeroo-style toggles.
-- A native Mods menu row and settings page.
-- Settings persisted using Horizon's native mod settings API.
+- Hold-to-zoom key (default C; rebindable in Options > Controls).
+- Mouse wheel adjusts zoom while the key is held.
+- Starting zoom setting (2x–20x).
+- Smooth zoom toggle.
+- Slower turning toggle.
+- Settings persisted through Horizon's native mod settings API.
 
-Gameplay behavior is intentionally not wired up until each feature has a verified hook on the pinned Horizon source. A menu toggle alone is not evidence that a feature works.
+## Planned
 
-## Planned port groups
+Free Camera, gamma override, hand restock, hotbar swap, permanent sprint/sneak, fast/flexible/accurate placement, inventory tweaks, HUD and remaining Tweakeroo features.
 
-1. Camera and view: Zoom integration, Free Camera.
-2. Player controls: permanent sprint/sneak, movement tweaks.
-3. Inventory: hand restock, hotbar swap, inventory tweaks.
-4. Placement: fast/flexible/accurate placement and block interaction.
-5. Visuals: gamma override, weather and HUD options.
-6. Remaining Tweakeroo features, audited against the upstream feature list.
+## Build and test
 
-## Build
+The official Horizon native-mod repository documents the workflow and uses the same native hook API.
 
-Use Horizon's native-mod tooling for the exact Horizon revision and matching `horizon-mixins` revision. The launcher compiles native mods for the game instance; this repository does not contain Minecraft assets or a prebuilt game binary.
+For a standalone checkout, copy this directory into Horizon's `native/tweakeroo_rust/` tree alongside the shared `native/tools/native.py`, then run:
 
-The source pin and Mixins revision are recorded in `compatibility.json`. Do not change either pin without checking the target APIs and rebuilding the native bundle.
+```sh
+python3 native/tools/native.py check tweakeroo_rust
+python3 native/tools/native.py package tweakeroo_rust
+```
 
-## Upstream and licensing
+The launcher can also build registered `.hnmod` bundles itself. A successful compile and an in-game test are still required before release.
 
-Tweakeroo is the upstream feature reference: https://modrinth.com/mod/tweakeroo
+## Upstream
 
-The upstream project is licensed under LGPL-3.0-only. This port must retain applicable copyright notices, provide the corresponding source and preserve LGPL obligations for any code derived from upstream. The current bootstrap code is an independent Rust scaffold, not a translation of upstream Java source.
+Feature reference: https://modrinth.com/mod/tweakeroo
 
-## Validation status
-
-No successful Horizon build or in-game test is claimed yet. Before calling a release usable, run the native-mod check/build against the pinned Horizon revision, package the `.hnmod`, and test each feature in Minecraft 26.3.
+The upstream Tweakeroo project is LGPL-3.0-only. This initial Rust implementation is an independent implementation of common zoom behavior and does not copy upstream Java source. If future work translates or incorporates upstream code, preserve its notices and comply with LGPL-3.0-only.
