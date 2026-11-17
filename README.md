@@ -1,45 +1,54 @@
 # Tweakeroo Rust for Horizon
 
-A native Rust mod project inspired by Tweakeroo, targeting Minecraft 26.3 and Horizon Nightly.
+Rust-native Tweakeroo-inspired mod for Minecraft 26.3 on Horizon.
 
-> **Status: first feature implemented in source — Zoom.** The feature is wired to Horizon's native key, wheel and zoom hooks, but this repository has not yet been built or tested in-game. Do not treat it as a released `.hnmod` yet.
+**Status: early port.** The first gameplay feature candidate is configurable Zoom. It is wired to Horizon's native key, wheel and zoom hooks and has unit tests for its state/settings logic. It has **not yet been compiled against the pinned Horizon checkout or tested in-game**, so treat this as development code, not an installable release.
 
 ## Target
 
-- Minecraft 26.3
-- Horizon Nightly: `9f42064c11efe7ef3e5ed2baad7ddc2a3b36eea0`
-- Horizon Mixins: `e8cd0aa38cffef49cb2e088ef716baa107148c02`
-- Native mod id: `tweakeroo_rust`
-- Native bundle format: `.hnmod`
+- Minecraft: 26.3
+- Horizon Nightly: 2026-11-13
+- Horizon commit: 9f42064c11efe7ef3e5ed2baad7ddc2a3b36eea0
+- Native mod format: .hnmod
+- Mod id: tweakeroo_rust
 
 ## Implemented in source
 
-- Hold-to-zoom key (default C; rebindable in Options > Controls).
-- Mouse wheel adjusts zoom while the key is held.
-- Starting zoom setting (2x–20x).
-- Smooth zoom toggle.
-- Slower turning toggle.
-- Settings persisted through Horizon's native mod settings API.
+- Zoom key (default Z; rebindable in Options > Mods)
+- Mouse-wheel zoom while the key is held
+- Starting zoom level: 2x, 3x, 4x, 6x, 8x, 10x
+- Smooth zoom setting
+- Reduced turning sensitivity setting
+- Settings persisted through Horizon's native mod settings API
 
 ## Planned
 
-Free Camera, gamma override, hand restock, hotbar swap, permanent sprint/sneak, fast/flexible/accurate placement, inventory tweaks, HUD and remaining Tweakeroo features.
+1. Gamma Override
+2. Free Camera
+3. Permanent Sprint / Sneak
+4. Hand Restock and Hotbar Swap
+5. Placement and inventory tweaks
+6. Remaining Tweakeroo feature audit and implementation
+
+A planned item is not implemented merely because it appears in this list. Each feature will be marked implemented only after its hooks are added and it passes tests.
 
 ## Build and test
 
-The official Horizon native-mod repository documents the workflow and uses the same native hook API.
+The source uses Horizon's native hook API 1 and the matching horizon-mixins revision in compatibility.json.
 
-For a standalone checkout, copy this directory into Horizon's `native/tweakeroo_rust/` tree alongside the shared `native/tools/native.py`, then run:
+Run the Rust logic tests:
 
-```sh
-python3 native/tools/native.py check tweakeroo_rust
-python3 native/tools/native.py package tweakeroo_rust
-```
+    cargo test --manifest-path Cargo.toml
 
-The launcher can also build registered `.hnmod` bundles itself. A successful compile and an in-game test are still required before release.
+For the actual Horizon bundle, use the native-mod tooling from the matching Horizon Mods checkout:
 
-## Upstream
+    python3 native/tools/native.py check tweakeroo_rust --horizon 9f42064c11efe7ef3e5ed2baad7ddc2a3b36eea0
+    python3 native/tools/native.py package tweakeroo_rust
 
-Feature reference: https://modrinth.com/mod/tweakeroo
+The packaged .hnmod is not included yet. A successful build and in-game proof must be recorded before publishing an installable release.
 
-The upstream Tweakeroo project is LGPL-3.0-only. This initial Rust implementation is an independent implementation of common zoom behavior and does not copy upstream Java source. If future work translates or incorporates upstream code, preserve its notices and comply with LGPL-3.0-only.
+## Upstream and licensing
+
+Tweakeroo is the feature reference: https://modrinth.com/mod/tweakeroo
+
+Tweakeroo is LGPL-3.0-only; this repository's independently written scaffolding does not contain translated Tweakeroo Java implementation. The Zoom state/behavior is adapted from Horizon's official native Zoom mod, which is MIT licensed; see ATTRIBUTION.md. Keep notices and source attribution with redistributed derivatives.
