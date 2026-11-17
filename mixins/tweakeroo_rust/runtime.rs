@@ -1,7 +1,6 @@
 // Tweakeroo Rust Edition.
-// The zoom behavior below is adapted from Horizon's native Zoom implementation
-// (MIT; see ATTRIBUTION.md). Other Tweakeroo-inspired features are planned,
-// but are not advertised as implemented until their game hooks are wired.
+// Zoom behavior is adapted from Horizon's official native Zoom mod (MIT).
+// Permanent Sneak uses Horizon's verified native_movement_input hook.
 use std::cell::RefCell;
 
 pub const ID: &str = "tweakeroo_rust";
@@ -9,7 +8,6 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const DESCRIPTION: &str = "Tweakeroo-style client tweaks for Horizon (development build).";
 pub const KEY: &str = "zoom";
 pub const DEFAULT_KEY: &str = "key.keyboard.z";
-
 const LEVELS: [u8; 6] = [2, 3, 4, 6, 8, 10];
 const MIN: f32 = 1.25;
 const MAX: f32 = 10.0;
@@ -20,6 +18,7 @@ pub struct Settings {
     pub level: u8,
     pub smooth: bool,
     pub sensitivity: bool,
+    pub permanent_sneak: bool,
 }
 
 impl Settings {
@@ -27,11 +26,12 @@ impl Settings {
         let level = get("zoom_level")
             .and_then(|v| v.trim().parse::<i64>().ok())
             .map_or(4, |v| v.clamp(2, MAX as i64) as u8);
-        let flag = |key: &str| get(key).is_none_or(|v| v.trim() != "false");
+        let flag = |key: &str| get(key).is_some_and(|v| v.trim() == "true");
         Self {
             level,
-            smooth: flag("zoom_smooth"),
-            sensitivity: flag("zoom_sensitivity"),
+            smooth: get("zoom_smooth").is_none_or(|v| v.trim() != "false"),
+            sensitivity: get("zoom_sensitivity").is_none_or(|v| v.trim() != "false"),
+            permanent_sneak: flag("permanent_sneak"),
         }
     }
 
@@ -41,6 +41,7 @@ impl Settings {
             format!("Zoom starting level: {}x", self.level),
             format!("Smooth zoom: {}", on(self.smooth)),
             format!("Reduced turning sensitivity: {}", on(self.sensitivity)),
+            format!("Permanent Sneak: {}", on(self.permanent_sneak)),
         ]
     }
 
@@ -52,15 +53,17 @@ impl Settings {
             }
             1 => self.smooth = !self.smooth,
             2 => self.sensitivity = !self.sensitivity,
+            3 => self.permanent_sneak = !self.permanent_sneak,
             _ => {}
         }
     }
 
-    pub fn stored(&self) -> [(&'static str, String); 3] {
+    pub fn stored(&self) -> [(&'static str, String); 4] {
         [
             ("zoom_level", self.level.to_string()),
             ("zoom_smooth", self.smooth.to_string()),
             ("zoom_sensitivity", self.sensitivity.to_string()),
+            ("permanent_sneak", self.permanent_sneak.to_string()),
         ]
     }
 }
@@ -84,13 +87,9 @@ pub fn set_settings(settings: Settings) {
 }
 
 pub fn key(playing: bool, pressed: bool, get: impl Fn(&str) -> Option<String>) {
-    if pressed && !playing {
-        return;
-    }
+    if pressed && !playing { return; }
     let level = settings(get).level;
-    STATE.with_borrow_mut(|s| {
-        s.held = pressed.then(|| f32::from(level).clamp(MIN, MAX));
-    });
+    STATE.with_borrow_mut(|s| s.held = pressed.then(|| f32::from(level).clamp(MIN, MAX)));
 }
 
 pub fn wheel(steps: f32) -> bool {
@@ -110,6 +109,10 @@ pub fn view() -> Option<(f32, bool, f32)> {
     })
 }
 
+pub fn permanent_sneak(get: impl Fn(&str) -> Option<String>) -> bool {
+    settings(get).permanent_sneak
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -117,7 +120,7 @@ mod tests {
     #[test]
     fn defaults_and_settings_round_trip() {
         let s = Settings::read(|_| None);
-        assert_eq!(s, Settings { level: 4, smooth: true, sensitivity: true });
+        assert_eq!(s, Settings { level: 4, smooth: true, sensitivity: true, permanent_sneak: false });
         let stored = s.stored();
         let loaded = Settings::read(|key| stored.iter().find(|(k, _)| *k == key).map(|(_, v)| v.clone()));
         assert_eq!(s, loaded);
@@ -125,11 +128,9 @@ mod tests {
 
     #[test]
     fn settings_buttons_cycle_and_toggle() {
-        let mut s = Settings { level: 10, smooth: true, sensitivity: false };
-        s.click(0);
-        s.click(1);
-        s.click(2);
-        assert_eq!(s, Settings { level: 2, smooth: false, sensitivity: true });
+        let mut s = Settings { level: 10, smooth: true, sensitivity: false, permanent_sneak: false };
+        s.click(0); s.click(1); s.click(2); s.click(3);
+        assert_eq!(s, Settings { level: 2, smooth: false, sensitivity: true, permanent_sneak: true });
     }
 
     #[test]
@@ -142,5 +143,11 @@ mod tests {
         assert_eq!(view().map(|v| v.0), Some(5.0));
         key(false, false, |_| None);
         assert_eq!(view(), None);
+    }
+
+    #[test]
+    fn permanent_sneak_defaults_off_and_can_be_enabled() {
+        let s = Settings::read(|key| (key == "permanent_sneak").then(|| "true".to_owned()));
+        assert!(s.permanent_sneak);
     }
 }
