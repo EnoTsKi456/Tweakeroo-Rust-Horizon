@@ -1,161 +1,114 @@
-// Tweakeroo Rust Edition bootstrap.
-// This file is both the standalone Rust library and the module injected by
-// horizon-mixins. Gameplay hooks are added only after their Horizon API is
-// verified against the pinned source revision.
-
+// Tweakeroo Rust Edition: first implemented feature, Zoom.
+// Uses the same stable native hook API as Horizon's official Zoom mod.
 use std::cell::RefCell;
 
 pub const ID: &str = "tweakeroo_rust";
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const VERSION: &str = "0.2.0";
 pub const DESCRIPTION: &str =
-    "Tweakeroo-inspired client tweaks for Horizon; feature set is under development.";
+    "Tweakeroo-style client tweaks for Horizon. Zoom is implemented; more features are planned.";
+pub const ZOOM_KEY: &str = "zoom";
+pub const DEFAULT_ZOOM_KEY: &str = "key.keyboard.c";
+const MIN_ZOOM: f32 = 1.25;
+const MAX_ZOOM: f32 = 20.0;
+const WHEEL_STEP: f32 = 1.25;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[repr(usize)]
-pub enum Feature {
-    FreeCamera,
-    GammaOverride,
-    HandRestock,
-    HotbarSwap,
-    PermanentSprint,
-    PermanentSneak,
-    FastPlacement,
-    FlexiblePlacement,
-    AccuratePlacement,
-    InventoryTweaks,
-}
-
-impl Feature {
-    pub const ALL: [Self; 10] = [
-        Self::FreeCamera,
-        Self::GammaOverride,
-        Self::HandRestock,
-        Self::HotbarSwap,
-        Self::PermanentSprint,
-        Self::PermanentSneak,
-        Self::FastPlacement,
-        Self::FlexiblePlacement,
-        Self::AccuratePlacement,
-        Self::InventoryTweaks,
-    ];
-
-    pub const fn key(self) -> &'static str {
-        match self {
-            Self::FreeCamera => "free_camera",
-            Self::GammaOverride => "gamma_override",
-            Self::HandRestock => "hand_restock",
-            Self::HotbarSwap => "hotbar_swap",
-            Self::PermanentSprint => "permanent_sprint",
-            Self::PermanentSneak => "permanent_sneak",
-            Self::FastPlacement => "fast_placement",
-            Self::FlexiblePlacement => "flexible_placement",
-            Self::AccuratePlacement => "accurate_placement",
-            Self::InventoryTweaks => "inventory_tweaks",
-        }
-    }
-
-    pub const fn label(self) -> &'static str {
-        match self {
-            Self::FreeCamera => "Free Camera",
-            Self::GammaOverride => "Gamma Override",
-            Self::HandRestock => "Hand Restock",
-            Self::HotbarSwap => "Hotbar Swap",
-            Self::PermanentSprint => "Permanent Sprint",
-            Self::PermanentSneak => "Permanent Sneak",
-            Self::FastPlacement => "Fast Placement",
-            Self::FlexiblePlacement => "Flexible Placement",
-            Self::AccuratePlacement => "Accurate Placement",
-            Self::InventoryTweaks => "Inventory Tweaks",
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Settings {
-    enabled: [bool; Feature::ALL.len()],
+    pub starting_zoom: u8,
+    pub smooth: bool,
+    pub slower_turning: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self {
-            enabled: [false; Feature::ALL.len()],
-        }
+        Self { starting_zoom: 4, smooth: true, slower_turning: true }
     }
 }
 
 impl Settings {
-    pub fn read(mut get: impl FnMut(&str) -> Option<String>) -> Self {
-        let mut settings = Self::default();
-        for feature in Feature::ALL {
-            settings.enabled[feature as usize] = get(feature.key())
-                .is_some_and(|value| value.trim().eq_ignore_ascii_case("true"));
+    pub fn read(get: impl Fn(&str) -> Option<String>) -> Self {
+        let default = Self::default();
+        let starting_zoom = get("starting_zoom")
+            .and_then(|v| v.trim().parse::<i64>().ok())
+            .map_or(default.starting_zoom, |v| v.clamp(2, 20) as u8);
+        let flag = |key: &str, fallback: bool| {
+            get(key).map_or(fallback, |v| v.trim().eq_ignore_ascii_case("true"))
+        };
+        Self {
+            starting_zoom,
+            smooth: flag("smooth", default.smooth),
+            slower_turning: flag("slower_turning", default.slower_turning),
         }
-        settings
-    }
-
-    pub fn is_enabled(&self, feature: Feature) -> bool {
-        self.enabled[feature as usize]
-    }
-
-    pub fn set(&mut self, feature: Feature, enabled: bool) {
-        self.enabled[feature as usize] = enabled;
-    }
-
-    pub fn toggle(&mut self, feature: Feature) {
-        self.set(feature, !self.is_enabled(feature));
     }
 
     pub fn labels(&self) -> Vec<String> {
-        Feature::ALL
-            .iter()
-            .map(|feature| {
-                format!(
-                    "{}: {}",
-                    feature.label(),
-                    if self.is_enabled(*feature) { "ON" } else { "OFF" }
-                )
-            })
-            .collect()
-    }
-
-    pub fn stored(&self) -> Vec<(&'static str, String)> {
-        Feature::ALL
-            .iter()
-            .map(|feature| {
-                (
-                    feature.key(),
-                    if self.is_enabled(*feature) { "true" } else { "false" }.to_owned(),
-                )
-            })
-            .collect()
+        let on = |value| if value { "ON" } else { "OFF" };
+        vec![
+            format!("Starting zoom: {}x", self.starting_zoom),
+            format!("Smooth zoom: {}", on(self.smooth)),
+            format!("Slower turning: {}", on(self.slower_turning)),
+        ]
     }
 
     pub fn click(&mut self, index: usize) {
-        if let Some(feature) = Feature::ALL.get(index).copied() {
-            self.toggle(feature);
+        match index {
+            0 => self.starting_zoom = if self.starting_zoom >= 20 { 2 } else { self.starting_zoom + 2 },
+            1 => self.smooth = !self.smooth,
+            2 => self.slower_turning = !self.slower_turning,
+            _ => {}
         }
+    }
+
+    pub fn stored(&self) -> [(&'static str, String); 3] {
+        [
+            ("starting_zoom", self.starting_zoom.to_string()),
+            ("smooth", self.smooth.to_string()),
+            ("slower_turning", self.slower_turning.to_string()),
+        ]
     }
 }
 
-thread_local! {
-    static SETTINGS: RefCell<Settings> = RefCell::new(Settings::default());
+#[derive(Default)]
+struct State {
+    settings: Option<Settings>,
+    held_zoom: Option<f32>,
 }
 
-pub fn settings(get: impl FnMut(&str) -> Option<String>) -> Settings {
-    SETTINGS.with_borrow(|current| {
-        // The host helper is queried on every page open, so persisted values
-        // remain authoritative across game sessions.
-        let loaded = Settings::read(get);
-        if *current == Settings::default() {
-            loaded
-        } else {
-            *current
-        }
-    })
+thread_local! {
+    static STATE: RefCell<State> = RefCell::new(State::default());
+}
+
+pub fn settings(get: impl Fn(&str) -> Option<String>) -> Settings {
+    STATE.with_borrow_mut(|state| *state.settings.get_or_insert_with(|| Settings::read(get)))
 }
 
 pub fn set_settings(settings: Settings) {
-    SETTINGS.with_borrow_mut(|current| *current = settings);
+    STATE.with_borrow_mut(|state| state.settings = Some(settings));
+}
+
+pub fn key(playing: bool, pressed: bool, get: impl Fn(&str) -> Option<String>) {
+    if pressed && !playing { return; }
+    let level = settings(get).starting_zoom;
+    STATE.with_borrow_mut(|state| {
+        state.held_zoom = pressed.then(|| f32::from(level).clamp(MIN_ZOOM, MAX_ZOOM));
+    });
+}
+
+pub fn wheel(steps: f32) -> bool {
+    STATE.with_borrow_mut(|state| {
+        let Some(zoom) = &mut state.held_zoom else { return false; };
+        *zoom = (*zoom * WHEEL_STEP.powf(steps)).clamp(MIN_ZOOM, MAX_ZOOM);
+        true
+    })
+}
+
+pub fn view() -> Option<(f32, bool, f32)> {
+    STATE.with_borrow(|state| {
+        let factor = state.held_zoom?;
+        let settings = state.settings?;
+        let turn = if settings.slower_turning { 1.0 / factor } else { 1.0 };
+        Some((factor, settings.smooth, turn))
+    })
 }
 
 #[cfg(test)]
@@ -163,32 +116,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn defaults_are_disabled() {
-        let settings = Settings::default();
-        assert!(Feature::ALL.iter().all(|feature| !settings.is_enabled(*feature)));
+    fn settings_default_and_cycle() {
+        let mut s = Settings::default();
+        assert_eq!(s.starting_zoom, 4);
+        s.click(0);
+        assert_eq!(s.starting_zoom, 6);
+        s.click(1);
+        assert!(!s.smooth);
     }
 
     #[test]
-    fn reads_and_round_trips_settings() {
-        let settings = Settings::read(|key| {
-            (key == "free_camera").then(|| "true".to_owned())
-        });
-        assert!(settings.is_enabled(Feature::FreeCamera));
-        assert!(!settings.is_enabled(Feature::GammaOverride));
-
-        let stored = settings.stored();
-        let restored = Settings::read(|key| {
-            stored.iter().find(|(stored_key, _)| *stored_key == key)
-                .map(|(_, value)| value.clone())
-        });
-        assert_eq!(settings, restored);
+    fn settings_round_trip() {
+        let s = Settings { starting_zoom: 8, smooth: false, slower_turning: true };
+        let values = s.stored();
+        let restored = Settings::read(|key| values.iter().find(|(k, _)| *k == key).map(|(_, v)| v.clone()));
+        assert_eq!(s, restored);
     }
 
     #[test]
-    fn settings_page_click_toggles_the_selected_feature() {
-        let mut settings = Settings::default();
-        settings.click(Feature::ALL.iter().position(|f| *f == Feature::FastPlacement).unwrap());
-        assert!(settings.is_enabled(Feature::FastPlacement));
-        assert!(settings.labels().iter().any(|label| label == "Fast Placement: ON"));
+    fn zoom_uses_wheel_and_releases() {
+        let get = |_: &str| None;
+        key(true, true, get);
+        assert_eq!(view().map(|v| v.0), Some(4.0));
+        assert!(wheel(1.0));
+        assert_eq!(view().map(|v| v.0), Some(5.0));
+        key(false, false, get);
+        assert_eq!(view(), None);
     }
 }
