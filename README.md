@@ -2,7 +2,7 @@
 
 Rust-native Tweakeroo-inspired mod for Minecraft 26.3 on Horizon.
 
-**Status: early development; no installable .hnmod release yet.** Source currently contains Zoom and Permanent Sneak implementations. Rust unit tests are configured in GitHub Actions. The Horizon mixin bundle has not yet been checked/packaged against the user's pinned game build, and in-game behavior has not been verified.
+**Status: early development; no gameplay-validated release yet.** Source currently contains Zoom and Permanent Sneak implementations. GitHub Actions runs the standalone Rust tests and creates a deterministic source-only `.hnmod` candidate artifact. The Horizon mixin bundle has not yet passed the full pinned-game native build, and in-game behavior has not been verified.
 
 ## Target
 - Minecraft 26.3
@@ -34,7 +34,7 @@ GitHub Actions runs:
 Passing unit tests do not replace the native Horizon mixin check or in-game testing.
 
 ## Packaging
-No .hnmod artifact is currently published. Once the native mixin check succeeds against the pinned Horizon revision, package and test the bundle in the target launcher before publishing a release.
+GitHub Actions creates `target/tweakeroo_rust-0.3.0.hnmod` and uploads it as the `tweakeroo-rust-hnmod-candidate` workflow artifact. This is a source-only candidate archive, not proof that the native hooks compile or run. Download it from the latest successful [Actions run](https://github.com/EnoTsKi456/Tweakeroo-Rust-Horizon/actions), then only install after the pinned Horizon native build and in-game checks succeed. Reproduce locally with `python3 tools/package.py`.
 
 ## Upstream and licensing
 Tweakeroo feature reference: https://modrinth.com/mod/tweakeroo (LGPL-3.0-only). This repository's current logic is independently written and does not translate Tweakeroo Java source. Zoom state behavior is adapted from Horizon's official native Zoom mod; see ATTRIBUTION.md.
