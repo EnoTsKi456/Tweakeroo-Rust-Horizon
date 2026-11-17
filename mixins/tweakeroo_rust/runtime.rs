@@ -1,69 +1,66 @@
-// Tweakeroo Rust Edition: first implemented feature, Zoom.
-// Uses the same stable native hook API as Horizon's official Zoom mod.
+// Tweakeroo Rust Edition.
+// The zoom behavior below is adapted from Horizon's native Zoom implementation
+// (MIT; see ATTRIBUTION.md). Other Tweakeroo-inspired features are planned,
+// but are not advertised as implemented until their game hooks are wired.
 use std::cell::RefCell;
 
 pub const ID: &str = "tweakeroo_rust";
-pub const VERSION: &str = "0.2.0";
-pub const DESCRIPTION: &str =
-    "Tweakeroo-style client tweaks for Horizon. Zoom is implemented; more features are planned.";
-pub const ZOOM_KEY: &str = "zoom";
-pub const DEFAULT_ZOOM_KEY: &str = "key.keyboard.c";
-const MIN_ZOOM: f32 = 1.25;
-const MAX_ZOOM: f32 = 20.0;
-const WHEEL_STEP: f32 = 1.25;
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const DESCRIPTION: &str = "Tweakeroo-style client tweaks for Horizon (development build).";
+pub const KEY: &str = "zoom";
+pub const DEFAULT_KEY: &str = "key.keyboard.z";
+
+const LEVELS: [u8; 6] = [2, 3, 4, 6, 8, 10];
+const MIN: f32 = 1.25;
+const MAX: f32 = 10.0;
+const STEP: f32 = 1.25;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Settings {
-    pub starting_zoom: u8,
+    pub level: u8,
     pub smooth: bool,
-    pub slower_turning: bool,
-}
-
-impl Default for Settings {
-    fn default() -> Self {
-        Self { starting_zoom: 4, smooth: true, slower_turning: true }
-    }
+    pub sensitivity: bool,
 }
 
 impl Settings {
     pub fn read(get: impl Fn(&str) -> Option<String>) -> Self {
-        let default = Self::default();
-        let starting_zoom = get("starting_zoom")
+        let level = get("zoom_level")
             .and_then(|v| v.trim().parse::<i64>().ok())
-            .map_or(default.starting_zoom, |v| v.clamp(2, 20) as u8);
-        let flag = |key: &str, fallback: bool| {
-            get(key).map_or(fallback, |v| v.trim().eq_ignore_ascii_case("true"))
-        };
+            .map_or(4, |v| v.clamp(2, MAX as i64) as u8);
+        let flag = |key: &str| get(key).is_none_or(|v| v.trim() != "false");
         Self {
-            starting_zoom,
-            smooth: flag("smooth", default.smooth),
-            slower_turning: flag("slower_turning", default.slower_turning),
+            level,
+            smooth: flag("zoom_smooth"),
+            sensitivity: flag("zoom_sensitivity"),
         }
     }
 
     pub fn labels(&self) -> Vec<String> {
-        let on = |value| if value { "ON" } else { "OFF" };
+        let on = |b| if b { "ON" } else { "OFF" };
         vec![
-            format!("Starting zoom: {}x", self.starting_zoom),
+            format!("Zoom starting level: {}x", self.level),
             format!("Smooth zoom: {}", on(self.smooth)),
-            format!("Slower turning: {}", on(self.slower_turning)),
+            format!("Reduced turning sensitivity: {}", on(self.sensitivity)),
         ]
     }
 
     pub fn click(&mut self, index: usize) {
         match index {
-            0 => self.starting_zoom = if self.starting_zoom >= 20 { 2 } else { self.starting_zoom + 2 },
+            0 => {
+                let at = LEVELS.iter().position(|&l| l == self.level).unwrap_or(0);
+                self.level = LEVELS[(at + 1) % LEVELS.len()];
+            }
             1 => self.smooth = !self.smooth,
-            2 => self.slower_turning = !self.slower_turning,
+            2 => self.sensitivity = !self.sensitivity,
             _ => {}
         }
     }
 
     pub fn stored(&self) -> [(&'static str, String); 3] {
         [
-            ("starting_zoom", self.starting_zoom.to_string()),
-            ("smooth", self.smooth.to_string()),
-            ("slower_turning", self.slower_turning.to_string()),
+            ("zoom_level", self.level.to_string()),
+            ("zoom_smooth", self.smooth.to_string()),
+            ("zoom_sensitivity", self.sensitivity.to_string()),
         ]
     }
 }
@@ -71,7 +68,7 @@ impl Settings {
 #[derive(Default)]
 struct State {
     settings: Option<Settings>,
-    held_zoom: Option<f32>,
+    held: Option<f32>,
 }
 
 thread_local! {
@@ -79,34 +76,36 @@ thread_local! {
 }
 
 pub fn settings(get: impl Fn(&str) -> Option<String>) -> Settings {
-    STATE.with_borrow_mut(|state| *state.settings.get_or_insert_with(|| Settings::read(get)))
+    STATE.with_borrow_mut(|s| *s.settings.get_or_insert_with(|| Settings::read(get)))
 }
 
 pub fn set_settings(settings: Settings) {
-    STATE.with_borrow_mut(|state| state.settings = Some(settings));
+    STATE.with_borrow_mut(|s| s.settings = Some(settings));
 }
 
 pub fn key(playing: bool, pressed: bool, get: impl Fn(&str) -> Option<String>) {
-    if pressed && !playing { return; }
-    let level = settings(get).starting_zoom;
-    STATE.with_borrow_mut(|state| {
-        state.held_zoom = pressed.then(|| f32::from(level).clamp(MIN_ZOOM, MAX_ZOOM));
+    if pressed && !playing {
+        return;
+    }
+    let level = settings(get).level;
+    STATE.with_borrow_mut(|s| {
+        s.held = pressed.then(|| f32::from(level).clamp(MIN, MAX));
     });
 }
 
 pub fn wheel(steps: f32) -> bool {
-    STATE.with_borrow_mut(|state| {
-        let Some(zoom) = &mut state.held_zoom else { return false; };
-        *zoom = (*zoom * WHEEL_STEP.powf(steps)).clamp(MIN_ZOOM, MAX_ZOOM);
+    STATE.with_borrow_mut(|s| {
+        let Some(z) = &mut s.held else { return false; };
+        *z = (*z * STEP.powf(steps)).clamp(MIN, MAX);
         true
     })
 }
 
 pub fn view() -> Option<(f32, bool, f32)> {
-    STATE.with_borrow(|state| {
-        let factor = state.held_zoom?;
-        let settings = state.settings?;
-        let turn = if settings.slower_turning { 1.0 / factor } else { 1.0 };
+    STATE.with_borrow(|s| {
+        let factor = s.held?;
+        let settings = s.settings?;
+        let turn = if settings.sensitivity { 1.0 / factor } else { 1.0 };
         Some((factor, settings.smooth, turn))
     })
 }
@@ -116,31 +115,32 @@ mod tests {
     use super::*;
 
     #[test]
-    fn settings_default_and_cycle() {
-        let mut s = Settings::default();
-        assert_eq!(s.starting_zoom, 4);
+    fn defaults_and_settings_round_trip() {
+        let s = Settings::read(|_| None);
+        assert_eq!(s, Settings { level: 4, smooth: true, sensitivity: true });
+        let stored = s.stored();
+        let loaded = Settings::read(|key| stored.iter().find(|(k, _)| *k == key).map(|(_, v)| v.clone()));
+        assert_eq!(s, loaded);
+    }
+
+    #[test]
+    fn settings_buttons_cycle_and_toggle() {
+        let mut s = Settings { level: 10, smooth: true, sensitivity: false };
         s.click(0);
-        assert_eq!(s.starting_zoom, 6);
         s.click(1);
-        assert!(!s.smooth);
+        s.click(2);
+        assert_eq!(s, Settings { level: 2, smooth: false, sensitivity: true });
     }
 
     #[test]
-    fn settings_round_trip() {
-        let s = Settings { starting_zoom: 8, smooth: false, slower_turning: true };
-        let values = s.stored();
-        let restored = Settings::read(|key| values.iter().find(|(k, _)| *k == key).map(|(_, v)| v.clone()));
-        assert_eq!(s, restored);
-    }
-
-    #[test]
-    fn zoom_uses_wheel_and_releases() {
-        let get = |_: &str| None;
-        key(true, true, get);
-        assert_eq!(view().map(|v| v.0), Some(4.0));
+    fn key_and_wheel_control_zoom() {
+        key(false, true, |_| None);
+        assert_eq!(view(), None);
+        key(true, true, |_| None);
+        assert_eq!(view(), Some((4.0, true, 0.25)));
         assert!(wheel(1.0));
         assert_eq!(view().map(|v| v.0), Some(5.0));
-        key(false, false, get);
+        key(false, false, |_| None);
         assert_eq!(view(), None);
     }
 }
