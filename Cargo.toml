@@ -1,0 +1,10 @@
+[package]
+name = "horizon-mod-tweakeroo-rust"
+version = "0.1.0"
+edition = "2024"
+license = "LGPL-3.0-only"
+publish = false
+description = "Tweakeroo-inspired native Rust mod for Horizon Minecraft 26.3"
+
+[lib]
+path = "mixins/tweakeroo_rust/runtime.rs"
