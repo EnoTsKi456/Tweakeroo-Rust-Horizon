@@ -31,7 +31,8 @@ def package():
     if mixin.get('compatibility', {}).get('horizon_revision') != compat['horizon_revision']:
         raise SystemExit('horizon-mixin.toml and compatibility.json pin different Horizon revisions')
     manifest = dict(schema=1, id=mod['id'], version=mod['version'], game=GAME,
-                    horizon=compat['horizon_revision'], mixins=compat['horizon_mixins_revision'])
+                    horizon=compat['horizon_revision'], mixins=compat['horizon_mixins_revision'],
+                    hooks=compat.get('hooks'))
     files = {'horizon-native.json': (json.dumps(manifest, indent=2, sort_keys=True) + '\n').encode()}
     for path in sorted(bundle.iterdir()):
         if path.is_file() and path.suffix in ('.rs', '.toml'):
