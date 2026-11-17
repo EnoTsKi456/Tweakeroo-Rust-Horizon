@@ -18,7 +18,7 @@ Source inspected: crates/horizon-client/src/game/native_hooks.rs at the target c
 | Feature | Status | Notes |
 |---|---|---|
 | Zoom | Implemented in source; unbuilt | Verified key, wheel and zoom hooks; behavior adapted from Horizon's official Zoom mod |
-| Permanent Sneak | Implemented in source; unbuilt | Verified movement_input hook exposes the sneak flag |
+| Permanent Sneak | Implemented in source; unbuilt | Verified movement_input hook exposes the sneak flag |\n| Zoom lifecycle cleanup | Implemented in source; unbuilt | Clears held zoom when the mod is disabled or the client unloads a world |
 | Gamma Override | Not implemented | No gamma/lightmap hook identified in inspected hook source |
 | Free Camera | Not implemented | Camera pose hook exists, but independent movement/input and safe camera lifecycle still need implementation |
 | Permanent Sprint | Not implemented | movement_input does not expose sprint state |
