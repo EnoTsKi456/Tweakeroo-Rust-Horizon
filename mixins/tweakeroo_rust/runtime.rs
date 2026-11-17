@@ -86,6 +86,11 @@ pub fn set_settings(settings: Settings) {
     STATE.with_borrow_mut(|s| s.settings = Some(settings));
 }
 
+/// Clear transient input state when the mod is disabled or the game loses its context.
+pub fn reset_zoom() {
+    STATE.with_borrow_mut(|s| s.held = None);
+}
+
 pub fn key(playing: bool, pressed: bool, get: impl Fn(&str) -> Option<String>) {
     if pressed && !playing { return; }
     let level = settings(get).level;
@@ -159,6 +164,14 @@ mod tests {
         assert!(wheel(-100.0));
         assert_eq!(view().map(|v| v.0), Some(MIN));
         key(false, false, |_| None);
+    }
+
+    #[test]
+    fn reset_clears_held_zoom_state() {
+        key(true, true, |_| None);
+        assert!(view().is_some());
+        reset_zoom();
+        assert_eq!(view(), None);
     }
 
     #[test]
