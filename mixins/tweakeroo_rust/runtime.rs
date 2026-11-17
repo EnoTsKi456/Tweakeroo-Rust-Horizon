@@ -93,6 +93,9 @@ pub fn key(playing: bool, pressed: bool, get: impl Fn(&str) -> Option<String>) {
 }
 
 pub fn wheel(steps: f32) -> bool {
+    if !steps.is_finite() {
+        return false;
+    }
     STATE.with_borrow_mut(|s| {
         let Some(z) = &mut s.held else { return false; };
         *z = (*z * STEP.powf(steps)).clamp(MIN, MAX);
@@ -143,6 +146,19 @@ mod tests {
         assert_eq!(view().map(|v| v.0), Some(5.0));
         key(false, false, |_| None);
         assert_eq!(view(), None);
+    }
+
+    #[test]
+    fn zoom_wheel_clamps_and_rejects_non_finite_input() {
+        key(true, true, |_| None);
+        assert!(!wheel(f32::NAN));
+        assert!(!wheel(f32::INFINITY));
+        assert_eq!(view().map(|v| v.0), Some(4.0));
+        assert!(wheel(100.0));
+        assert_eq!(view().map(|v| v.0), Some(MAX));
+        assert!(wheel(-100.0));
+        assert_eq!(view().map(|v| v.0), Some(MIN));
+        key(false, false, |_| None);
     }
 
     #[test]
