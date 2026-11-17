@@ -1,0 +1,15 @@
+name: Rust tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run standalone runtime tests
+        run: cargo test --manifest-path Cargo.toml
