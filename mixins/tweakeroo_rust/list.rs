@@ -4,6 +4,6 @@ fn tweakeroo_rust_listed(mods: &mut Vec<crate::game::native_hooks::NativeMod>) {
         id: tweakeroo::ID.into(),
         title: format!("Tweakeroo Rust {}", tweakeroo::VERSION),
         description: tweakeroo::DESCRIPTION.into(),
-        keys: Vec::new(),
+        keys: vec![[tweakeroo::ZOOM_KEY.into(), "Zoom".into(), tweakeroo::DEFAULT_ZOOM_KEY.into()]],
     });
 }
