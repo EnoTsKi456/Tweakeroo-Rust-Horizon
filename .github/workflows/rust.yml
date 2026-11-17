@@ -13,3 +13,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Run standalone runtime tests
         run: cargo test --manifest-path Cargo.toml
+      - name: Package source-only Horizon mod candidate
+        run: python3 tools/package.py
+      - name: Upload .hnmod candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: tweakeroo-rust-hnmod-candidate
+          path: target/tweakeroo_rust-0.3.0.hnmod
+          if-no-files-found: error
